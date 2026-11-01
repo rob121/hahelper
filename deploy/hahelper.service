@@ -1,0 +1,24 @@
+[Unit]
+Description=HA Helper HomeKit bridge
+Documentation=https://github.com/rob121/hahelper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hahelper
+Group=hahelper
+ExecStart=/usr/local/bin/hahelper
+WorkingDirectory=/var/lib/hahelper
+EnvironmentFile=-/etc/hahelper/env
+Restart=on-failure
+RestartSec=5
+# HAP pairing data and exposure registry
+StateDirectory=hahelper
+ConfigurationDirectory=hahelper
+
+# mDNS / HomeKit on LAN
+PrivateDevices=no
+
+[Install]
+WantedBy=multi-user.target

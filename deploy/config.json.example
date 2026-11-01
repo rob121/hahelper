@@ -1,0 +1,27 @@
+{
+  "home_assistant": {
+    "url": "http://homeassistant.local:8123",
+    "token": "",
+    "ws_reconnect": true
+  },
+  "bridge": {
+    "name": "HA Helper",
+    "serial_number": "hahelper-bridge",
+    "manufacturer": "rob121",
+    "model": "hahelper",
+    "firmware": "0.2.0",
+    "pin": "00102003",
+    "setup_id": "HAHP",
+    "room_naming": "both"
+  },
+  "ui": {
+    "listen": "0.0.0.0:8080"
+  },
+  "hap": {
+    "pin": "00102003",
+    "store_path": "/var/lib/hahelper/db",
+    "addr": "",
+    "verbose_log": false,
+    "state_poll_seconds": 90
+  }
+}

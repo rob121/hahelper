@@ -1,0 +1,25 @@
+# Local config (HA tokens, PIN, URLs)
+/config.json
+/config.*.json
+!deploy/config.json.example
+
+# Environment overrides
+.env
+.env.*
+!.env.example
+/deploy/env
+
+# HomeKit pairing keys, exposure registry, bridge state
+/db/
+
+# Build outputs
+/hahelper
+/.deploy/
+*.exe
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

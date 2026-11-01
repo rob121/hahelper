@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HA Helper</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-w: 260px;
+      --accent: #2563eb;
+      --accent-soft: #eff6ff;
+      --surface: #ffffff;
+      --bg: #f1f5f9;
+      --border: #e2e8f0;
+      --text-muted: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: #0f172a;
+    }
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+    .brand {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+    .brand-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.35;
+    }
+    .nav-section {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text-muted);
+      margin: 1rem 0 0.5rem 0.75rem;
+    }
+    .nav-item-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 0.55rem 0.75rem;
+      border-radius: 0.5rem;
+      color: #334155;
+      font-size: 0.925rem;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-item-btn:hover { background: var(--bg); color: #0f172a; }
+    .nav-item-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .nav-item-btn i { font-size: 1.1rem; opacity: 0.85; }
+    .sidebar-status {
+      margin-top: auto;
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: 0.65rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .badge-dot {
+      display: inline-block;
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      margin-right: 0.35rem;
+      vertical-align: middle;
+    }
+    .badge-dot.ok { background: #22c55e; }
+    .badge-dot.warn { background: #f59e0b; }
+    .badge-dot.err { background: #ef4444; }
+    .main {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      padding: 1.5rem 1.75rem 2.5rem;
+    }
+    .page { display: none; animation: fadeIn 0.2s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .page-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .page-lead { color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.95rem; }
+    .card-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .card-panel .card-body { padding: 1.35rem 1.5rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .toolbar .grow { flex: 1; min-width: 180px; }
+    .entity-table-wrap { overflow-x: auto; }
+    .entity-table {
+      font-size: 0.875rem;
+      margin: 0;
+      width: 100%;
+      table-layout: fixed;
+    }
+    .entity-table thead th {
+      font-size: 0.8rem;
+      letter-spacing: 0.01em;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom-width: 1px;
+      white-space: nowrap;
+    }
+    .entity-table td { vertical-align: middle; }
+    .entity-table .col-check { width: 2.75rem; }
+    .entity-table .col-homekit { width: 26%; min-width: 11rem; }
+    .entity-table .col-ha-name { width: 18%; min-width: 8rem; }
+    .entity-table .col-area { width: 10%; min-width: 5rem; }
+    .entity-table .col-entity { width: 32%; min-width: 12rem; }
+    .entity-table .col-state { width: 7rem; }
+    .entity-table .col-ha-name,
+    .entity-table .col-area {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .entity-table .col-entity code {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.8rem;
+      color: #475569;
+    }
+    .name-cell-inner {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      min-width: 0;
+    }
+    .name-input {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      font-size: 0.875rem;
+    }
+    .name-input.is-override {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .btn-reset-name {
+      font-size: 0.75rem;
+      padding: 0.1rem 0.35rem;
+      vertical-align: middle;
+    }
+    .state-pill {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: var(--bg);
+      font-family: ui-monospace, monospace;
+    }
+    .exposed-badge {
+      font-size: 0.65rem;
+      background: #dcfce7;
+      color: #166534;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .qr-img { max-width: 280px; border-radius: 12px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12); }
+    .pin-code { font-size: 1.75rem; letter-spacing: 0.15em; font-weight: 600; color: var(--accent); }
+    .sticky-save {
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(transparent, var(--surface) 24%);
+      padding-top: 1rem;
+      margin-top: 0.5rem;
+    }
+    @media (max-width: 768px) {
+      .app { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.75rem;
+      }
+      .brand-sub, .sidebar-status, .nav-section { display: none; }
+      .nav-item-btn { width: auto; padding: 0.45rem 0.65rem; font-size: 0.85rem; }
+      .main { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">HA Helper</div>
+    <div class="brand-sub">Home Assistant → HomeKit bridge</div>
+    <div class="nav-section">Configure</div>
+    <button type="button" class="nav-item-btn active" data-page="setup"><i class="bi bi-plug"></i> Home Assistant</button>
+    <button type="button" class="nav-item-btn" data-page="entities"><i class="bi bi-grid-3x3-gap"></i> Entities</button>
+    <button type="button" class="nav-item-btn" data-page="homekit"><i class="bi bi-house-heart"></i> HomeKit</button>
+    <div class="sidebar-status" id="statusBar">Loading…</div>
+  </aside>
+
+  <main class="main">
+    <section class="page active" id="page-setup">
+      <h1 class="page-title">Home Assistant</h1>
+      <p class="page-lead">Connect with your instance URL and a long-lived access token. You can also set <code>HAHELPER_HA_TOKEN</code> in the environment.</p>
+      <div class="card-panel">
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">URL</label>
+            <input type="url" class="form-control" id="haUrl" placeholder="http://homeassistant.local:8123">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Access Token</label>
+            <input type="password" class="form-control" id="haToken" placeholder="Leave blank to keep existing token">
+            <div id="tokenHint" class="form-text"></div>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-outline-primary" id="btnTest"><i class="bi bi-lightning-charge"></i> Test Connection</button>
+            <button type="button" class="btn btn-primary" id="btnSaveHA"><i class="bi bi-check2"></i> Save</button>
+          </div>
+          <div id="haMsg" class="mt-3"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-entities">
+      <h1 class="page-title">Entities</h1>
+      <p class="page-lead">Choose what appears in HomeKit. Edit <strong>HomeKit Name</strong> to override the auto-generated label (area + friendly name).</p>
+      <div class="card-panel">
+        <div class="card-body">
+          <div class="toolbar">
+            <select class="form-select form-select-sm" style="max-width:11rem" id="exposureFilter" aria-label="Exposure filter">
+              <option value="">All Devices</option>
+              <option value="enabled">In HomeKit</option>
+              <option value="disabled">Not In HomeKit</option>
+            </select>
+            <select class="form-select form-select-sm" style="max-width:11rem" id="domainFilter">
+              <option value="">All Domains</option>
+            </select>
+            <input type="search" class="form-control form-control-sm grow" id="entitySearch" placeholder="Search entity_id or name…">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelectExposed" title="Check All Visible Rows That Are Already in HomeKit">Select Exposed</button>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted small" id="entityCount"></span>
+          </div>
+          <div class="entity-table-wrap">
+            <table class="table table-hover entity-table align-middle">
+              <thead>
+                <tr>
+                  <th class="col-check"></th>
+                  <th class="col-homekit">HomeKit Name</th>
+                  <th class="col-ha-name">HA Name</th>
+                  <th class="col-area">Area</th>
+                  <th class="col-entity">Entity</th>
+                  <th class="col-state">State</th>
+                </tr>
+              </thead>
+              <tbody id="entityRows"></tbody>
+            </table>
+          </div>
+          <div class="sticky-save d-flex flex-wrap gap-2 justify-content-between align-items-center">
+            <span class="small text-muted" id="saveHint">Changes are not applied until you save.</span>
+            <button type="button" class="btn btn-success" id="btnSaveExposed"><i class="bi bi-arrow-repeat"></i> Save &amp; Reload Bridge</button>
+          </div>
+          <div id="entityMsg" class="mt-2"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-homekit">
+      <h1 class="page-title">HomeKit Pairing</h1>
+      <p class="page-lead">Add this bridge in the Apple Home app using the QR code or PIN below.</p>
+      <div class="card-panel">
+        <div class="card-body text-center py-4">
+          <img id="qrImg" class="qr-img mb-3 d-none" alt="HomeKit QR code">
+          <div class="pin-code mb-2" id="pinDisplay">—</div>
+          <p class="text-muted mb-1" id="pairStatus"></p>
+          <p class="small text-muted mb-0">Home app → Add Accessory → More options… → enter code</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const selected = new Set();
+const nameDraft = new Map();
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(t || r.statusText);
+  }
+  return r.json();
+}
+
+function show(el, html, ok) {
+  el.innerHTML = html ? `<div class="alert alert-${ok ? 'success' : 'danger'} py-2 mb-0">${html}</div>` : '';
+}
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
+  document.querySelectorAll('.nav-item-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+  if (page === 'entities') loadEntities();
+  if (page === 'homekit') loadHomeKit();
+  history.replaceState(null, '', '#' + page);
+}
+
+document.querySelectorAll('.nav-item-btn').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.page));
+});
+
+async function initialPage() {
+  const hash = location.hash.slice(1);
+  if (['setup', 'entities', 'homekit'].includes(hash)) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item-btn').forEach(b => b.classList.remove('active'));
+    navigate(hash);
+    return;
+  }
+  try {
+    const s = await api('/api/status');
+    const page = s.ha_configured ? 'entities' : 'setup';
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item-btn').forEach(b => b.classList.remove('active'));
+    navigate(page);
+  } catch (_) {
+    navigate('setup');
+  }
+}
+
+async function loadDomains() {
+  try {
+    const { domains } = await api('/api/domains');
+    const sel = document.getElementById('domainFilter');
+    for (const d of domains) {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      sel.appendChild(opt);
+    }
+  } catch (_) {}
+}
+
+async function refreshStatus() {
+  const bar = document.getElementById('statusBar');
+  try {
+    const s = await api('/api/status');
+    const ha = s.ha_connected
+      ? '<span class="badge-dot ok"></span>HA connected'
+      : '<span class="badge-dot warn"></span>HA disconnected';
+    const hk = s.homekit_paired
+      ? '<span class="badge-dot ok"></span>HomeKit paired'
+      : '<span class="badge-dot err"></span>Not paired';
+    bar.innerHTML = ha + '<br>' + hk + '<br>' + (s.exposed_count || 0) + ' in HomeKit' +
+      (s.ha_version ? '<br><span class="text-secondary">v' + escapeHtml(s.ha_version) + '</span>' : '');
+  } catch (e) {
+    bar.textContent = 'Status unavailable';
+  }
+}
+
+async function loadHAConfig() {
+  const c = await api('/api/home_assistant/config');
+  document.getElementById('haUrl').value = c.url || '';
+  const hint = document.getElementById('tokenHint');
+  if (hint) {
+    hint.textContent = c.token_set ? 'Token is saved (hidden). Enter a new token only to replace it.' : 'No token saved yet.';
+  }
+}
+
+function effectiveNameInput(e) {
+  const draft = nameDraft.get(e.entity_id);
+  if (draft !== undefined) return draft;
+  if (e.homekit_name_override) return e.homekit_name_override;
+  return e.homekit_name_default || e.homekit_name || e.name;
+}
+
+function updateNameInputStyle(input) {
+  const def = input.dataset.default || '';
+  const val = input.value.trim();
+  const isOverride = val !== '' && val !== def.trim();
+  input.classList.toggle('is-override', isOverride);
+}
+
+async function loadEntities() {
+  const domain = document.getElementById('domainFilter').value;
+  const q = document.getElementById('entitySearch').value;
+  const params = new URLSearchParams();
+  const exposure = document.getElementById('exposureFilter').value;
+  if (exposure) params.set('exposure', exposure);
+  if (domain) params.set('domain', domain);
+  if (q) params.set('q', q);
+  const data = await api('/api/entities?' + params);
+  const tbody = document.getElementById('entityRows');
+  tbody.innerHTML = '';
+  data.entities.forEach(e => {
+    if (e.exposed) selected.add(e.entity_id);
+    const defName = e.homekit_name_default || e.homekit_name || e.name;
+    const inputVal = effectiveNameInput(e);
+    const tr = document.createElement('tr');
+    const exposedMark = e.exposed ? '<span class="exposed-badge ms-1">HomeKit</span>' : '';
+    tr.innerHTML = `
+      <td class="col-check"><input type="checkbox" class="form-check-input expose-cb" data-id="${escapeAttr(e.entity_id)}" ${e.exposed ? 'checked' : ''}></td>
+      <td class="col-homekit">
+        <div class="name-cell-inner">
+          <input type="text" class="form-control form-control-sm name-input" data-id="${escapeAttr(e.entity_id)}" data-default="${escapeAttr(defName)}" value="${escapeAttr(inputVal)}" aria-label="HomeKit name for ${escapeAttr(e.entity_id)}">
+          <button type="button" class="btn btn-link btn-reset-name text-secondary reset-name flex-shrink-0" data-id="${escapeAttr(e.entity_id)}" title="Reset to Default">↺</button>
+        </div>
+      </td>
+      <td class="col-ha-name">${escapeHtml(e.name)}${exposedMark}</td>
+      <td class="col-area">${escapeHtml(e.area || '—')}</td>
+      <td class="col-entity"><code title="${escapeAttr(e.entity_id)}">${escapeHtml(e.entity_id)}</code></td>
+      <td class="col-state"><span class="state-pill">${escapeHtml(e.state)}</span></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.expose-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id);
+    });
+  });
+  tbody.querySelectorAll('.name-input').forEach(input => {
+    updateNameInputStyle(input);
+    input.addEventListener('input', () => {
+      nameDraft.set(input.dataset.id, input.value);
+      updateNameInputStyle(input);
+    });
+  });
+  tbody.querySelectorAll('.reset-name').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = tbody.querySelector('.name-input[data-id="' + CSS.escape(btn.dataset.id) + '"]');
+      if (!input) return;
+      input.value = input.dataset.default || '';
+      nameDraft.set(btn.dataset.id, input.value);
+      updateNameInputStyle(input);
+    });
+  });
+  const n = data.entities.length;
+  const expLabel = exposure === 'enabled' ? ' in HomeKit' : exposure === 'disabled' ? ' not in HomeKit' : '';
+  document.getElementById('entityCount').textContent = n + ' device' + (n === 1 ? '' : 's') + expLabel;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, '&#39;');
+}
+
+function collectHomeKitNames() {
+  const names = {};
+  document.querySelectorAll('.name-input').forEach(input => {
+    const id = input.dataset.id;
+    if (!selected.has(id)) return;
+    const def = (input.dataset.default || '').trim();
+    const val = input.value.trim();
+    if (val === def || val === '') {
+      names[id] = '';
+    } else {
+      names[id] = val;
+    }
+  });
+  return names;
+}
+
+async function loadHomeKit() {
+  const h = await api('/api/homekit/setup');
+  document.getElementById('pinDisplay').textContent = h.pin;
+  document.getElementById('pairStatus').textContent = h.paired ? 'Bridge is paired with HomeKit.' : 'Not paired yet — add the bridge in the Home app.';
+  const img = document.getElementById('qrImg');
+  if (h.qr_png_base64) {
+    img.src = 'data:image/png;base64,' + h.qr_png_base64;
+    img.classList.remove('d-none');
+  }
+}
+
+document.getElementById('btnTest').addEventListener('click', async () => {
+  const msg = document.getElementById('haMsg');
+  try {
+    const body = { url: document.getElementById('haUrl').value, token: document.getElementById('haToken').value };
+    const r = await api('/api/home_assistant/test', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    show(msg, r.ok ? 'Connection successful.' : (r.error || 'Failed'), r.ok);
+  } catch (e) { show(msg, e.message, false); }
+});
+
+document.getElementById('btnSaveHA').addEventListener('click', async () => {
+  const msg = document.getElementById('haMsg');
+  try {
+    const r = await api('/api/home_assistant/config', {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url: document.getElementById('haUrl').value, token: document.getElementById('haToken').value })
+    });
+    const note = r.token_set ? 'Saved and reconnecting. Token stored.' : 'Saved URL; add a token to connect.';
+    show(msg, note, r.token_set);
+    document.getElementById('haToken').value = '';
+    await loadHAConfig();
+    await refreshStatus();
+  } catch (e) { show(msg, e.message, false); }
+});
+
+document.getElementById('btnSaveExposed').addEventListener('click', async () => {
+  const msg = document.getElementById('entityMsg');
+  try {
+    await api('/api/exposed', {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        entity_ids: [...selected],
+        homekit_names: collectHomeKitNames()
+      })
+    });
+    nameDraft.clear();
+    show(msg, 'Saved. HomeKit bridge is reloading with updated names.', true);
+    await refreshStatus();
+    await loadEntities();
+  } catch (e) { show(msg, e.message, false); }
+});
+
+document.getElementById('btnSelectExposed').addEventListener('click', () => {
+  document.querySelectorAll('.expose-cb').forEach(cb => {
+    if (cb.checked) selected.add(cb.dataset.id);
+  });
+});
+
+document.getElementById('exposureFilter').addEventListener('change', loadEntities);
+document.getElementById('domainFilter').addEventListener('change', loadEntities);
+let searchTimer;
+document.getElementById('entitySearch').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadEntities, 300);
+});
+
+(async () => {
+  await loadDomains();
+  await initialPage();
+  await refreshStatus();
+  await loadHAConfig();
+  setInterval(refreshStatus, 15000);
+})();
+</script>
+</body>
+</html>
