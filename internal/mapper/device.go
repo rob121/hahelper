@@ -17,6 +17,15 @@ type Device struct {
 	Domain   string
 	A        *accessory.A
 	applyHA  func(haclient.StateEntity)
+	stop     func()
+}
+
+// Stop releases resources tied to the device (e.g. camera ffmpeg).
+func (d *Device) Stop() {
+	if d.stop != nil {
+		d.stop()
+		d.stop = nil
+	}
 }
 
 // ApplyHA pushes a Home Assistant state update into HomeKit.
@@ -30,7 +39,7 @@ type HAActions interface {
 	CallEntity(ctx context.Context, domain, service, entityID string, data map[string]interface{}) error
 }
 
-func Build(entityID, friendlyName string, hapID int, se *haclient.StateEntity, ha HAActions, guard *SyncGuard) (*Device, error) {
+func Build(entityID, friendlyName string, hapID int, se *haclient.StateEntity, ha HAActions, guard *SyncGuard, cams CameraBridge) (*Device, error) {
 	domain := Domain(entityID)
 	if !MappableDomains[domain] {
 		return nil, ErrUnsupported
@@ -85,12 +94,21 @@ func Build(entityID, friendlyName string, hapID int, se *haclient.StateEntity, h
 		dev = buildAlarmPanel(info, entityID, ha, guard)
 	case "button", "input_button":
 		dev = buildButton(info, entityID, domain, ha, guard)
+	case "camera":
+		var err error
+		dev, err = buildCamera(info, entityID, cams)
+		if err != nil {
+			return nil, err
+		}
 	default:
+		return nil, ErrUnsupported
+	}
+	if dev == nil {
 		return nil, ErrUnsupported
 	}
 	dev.A.Id = uint64(hapID)
 	if se != nil {
-		dev.applyHA(*se)
+		dev.ApplyHA(*se)
 	}
 	return dev, nil
 }

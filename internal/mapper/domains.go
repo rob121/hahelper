@@ -24,6 +24,7 @@ var MappableDomains = map[string]bool{
 	"alarm_control_panel": true,
 	"button":              true,
 	"input_button":        true,
+	"camera":              true,
 }
 
 // ExposableDomains returns sorted domain names for the admin UI.

@@ -52,7 +52,7 @@ func TestLoad_migratesLegacyFile(t *testing.T) {
 	if !strings.Contains(body, `"schema_version"`) {
 		t.Fatalf("expected migrated file to include schema_version: %s", b)
 	}
-	if !strings.Contains(body, `"schema_version": 2`) {
-		t.Fatalf("expected schema_version 2: %s", b)
+	if !strings.Contains(body, `"schema_version": 3`) {
+		t.Fatalf("expected schema_version 3: %s", b)
 	}
 }

@@ -111,8 +111,35 @@ Supported HA [entity domains](https://www.home-assistant.io/docs/configuration/e
 | `siren` | Switch |
 | `alarm_control_panel` | Security system (arm/disarm; no PIN from HomeKit) |
 | `button`, `input_button` | Switch (HomeKit on → HA `press`) |
+| `camera` | IP camera (live view via HomeKit RTP; **ffmpeg** required on the host) |
 
 The admin UI domain filter is loaded from `GET /api/domains` and matches this list.
+
+### Cameras
+
+Expose `camera.*` entities like any other device. Live view uses HomeKit **RTP** (same model as [hkcam](https://github.com/brutella/hkcam)): hahelper pulls video from Home Assistant and ffmpeg encodes it to H.264 SRTP for the Home app.
+
+**Requirements**
+
+- `ffmpeg` installed on the host running hahelper (deploy target must have it in `PATH`).
+- HA URL + token configured (stream uses `Authorization: Bearer …` against HA’s API).
+- **HomeKit / ffmpeg (default):** pulls `http://<ha>/api/camera_proxy_stream/<entity_id>` with `Authorization: Bearer …` (one hop, lower latency).
+- **Local proxy (debug / fallback):** `GET http://127.0.0.1:<ui-port>/api/camera/stream/<entity_id>` still works for curl/VLC. Set `"camera_via_proxy": true` under `hap` to route ffmpeg through it instead.
+- ffmpeg transcodes MJPEG to **H.264** for HomeKit.
+
+**Optional** (`exposed.json` per camera entry):
+
+| Field | Purpose |
+|--------|---------|
+| `stream_source` | RTSP URL instead of the HA proxy (e.g. `rtsp://user:pass@cam:554/...`). Uses `ffmpeg -rtsp_transport tcp` and `video_codec` copy when possible. |
+
+**Config** (`hap.camera_multi_stream`): set `true` to allow multiple simultaneous HomeKit viewers (extra CPU; default `false`).
+
+**iOS live view** sends encrypted **UDP** (SRTP) to the address your iPhone reports in setup (see `camera setup: controller=…` in logs). That path must work from the hahelper host — same LAN as the phone, or both on a VPN (e.g. Tailscale) that routes UDP. macOS Home on Wi‑Fi often uses a `192.168.*` controller IP while an iPhone on VPN may use `10.*` / `100.*`; if the host cannot reach that IP, you get a spinning wheel. Prefer viewing on the same network as hahelper, or use `stream_source` RTSP when the camera exposes it.
+
+If logs show `End of file` on `camera_proxy_stream` after ~15–30s, try `"camera_via_proxy": true` (reconnecting local proxy) or an RTSP `stream_source`.
+
+Still-image-only cameras may need a direct RTSP URL or `stream_source` in `exposed.json` until snapshot-loop mode is exposed in the UI.
 
 ## HomeKit shows “No Response” but controls work
 

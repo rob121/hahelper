@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rob121/hahelper/internal/bridge"
+	"github.com/rob121/hahelper/internal/cameraproxy"
 	"github.com/rob121/hahelper/internal/config"
 	"github.com/rob121/hahelper/internal/exposure"
 	"github.com/rob121/hahelper/internal/haclient"
@@ -50,6 +51,7 @@ func New(
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	cameraproxy.NewHandler(s.cfg, s.exposure).Mount(mux)
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/domains", s.handleDomains)

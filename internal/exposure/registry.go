@@ -9,9 +9,10 @@ import (
 )
 
 type Entry struct {
-	EntityID     string `json:"entity_id"`
-	HAPID        int    `json:"hap_id"`
-	HomeKitName  string `json:"homekit_name,omitempty"`
+	EntityID      string `json:"entity_id"`
+	HAPID         int    `json:"hap_id"`
+	HomeKitName   string `json:"homekit_name,omitempty"`
+	StreamSource  string `json:"stream_source,omitempty"` // optional RTSP URL for camera entities
 }
 
 type File struct {

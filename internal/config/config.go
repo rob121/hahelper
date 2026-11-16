@@ -47,6 +47,10 @@ type HAP struct {
 	// StatePollSeconds refreshes exposed entities from Home Assistant over REST and
 	// pushes updates to HomeKit. Omitted or 0 uses 90; -1 disables polling.
 	StatePollSeconds int `mapstructure:"state_poll_seconds" json:"state_poll_seconds"`
+	// CameraMultiStream allows more than one HomeKit viewer per camera (requires ffmpeg).
+	CameraMultiStream bool `mapstructure:"camera_multi_stream" json:"camera_multi_stream"`
+	// CameraViaProxy routes ffmpeg through hahelper /api/camera/* instead of direct HA (default false).
+	CameraViaProxy bool `mapstructure:"camera_via_proxy" json:"camera_via_proxy"`
 }
 
 func Parse(v *viper.Viper) (Config, error) {

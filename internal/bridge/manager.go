@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/brutella/hap"
@@ -146,7 +147,32 @@ func (m *Manager) run(ctx context.Context) error {
 	var accessories []*accessory.A
 	accessories = append(accessories, br.A)
 
+	var camBridge mapper.CameraBridge
+	if cfg.HAConfigured() {
+		streamSources := make(map[string]string)
+		snapshotCams := make(map[string]bool)
+		for _, e := range m.exposure.Entries() {
+			if strings.TrimSpace(e.StreamSource) != "" {
+				streamSources[e.EntityID] = strings.TrimSpace(e.StreamSource)
+			}
+		}
+		camBridge = &mapper.HACameraBridge{
+			HAURL:           cfg.HomeAssistant.URL,
+			Token:           cfg.HomeAssistant.Token,
+			UIListen:        cfg.UI.Listen,
+			MultiStream:     cfg.HAP.CameraMultiStream,
+			StreamSources:   streamSources,
+			SnapshotCameras: snapshotCams,
+			ViaLocalProxy:   cfg.HAP.CameraViaProxy,
+		}
+	}
+
 	var devices []*mapper.Device
+	defer func() {
+		for _, d := range devices {
+			d.Stop()
+		}
+	}()
 	for _, exp := range m.exposure.Entries() {
 		entry := exp.EntityID
 		if !mapper.IsMappable(entry) {
@@ -164,7 +190,7 @@ func (m *Manager) run(ctx context.Context) error {
 		if hid == 0 {
 			hid = 2
 		}
-		dev, err := mapper.Build(entry, name, hid, sePtr, m.ha, &m.guard)
+		dev, err := mapper.Build(entry, name, hid, sePtr, m.ha, &m.guard, camBridge)
 		if err != nil {
 			log.Printf("skip %s: %v", entry, err)
 			continue
