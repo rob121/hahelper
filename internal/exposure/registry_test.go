@@ -13,17 +13,38 @@ func TestSetExposure_preservesAndClearsHomeKitName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := r.SetExposure([]string{"light.a"}, map[string]string{"light.a": "Custom Lamp"}); err != nil {
+	if err := r.SetExposure([]string{"light.a"}, map[string]string{"light.a": "Custom Lamp"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := r.HomeKitNameOverride("light.a"); got != "Custom Lamp" {
 		t.Fatalf("override = %q", got)
 	}
-	if err := r.SetExposure([]string{"light.a"}, map[string]string{"light.a": ""}); err != nil {
+	if err := r.SetExposure([]string{"light.a"}, map[string]string{"light.a": ""}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := r.HomeKitNameOverride("light.a"); got != "" {
 		t.Fatalf("expected cleared override, got %q", got)
+	}
+}
+
+func TestSetExposure_streamSource(t *testing.T) {
+	dir := t.TempDir()
+	r, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rtsp := "rtsp://cam/stream"
+	if err := r.SetExposure([]string{"camera.garage"}, nil, map[string]string{"camera.garage": rtsp}); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.StreamSource("camera.garage"); got != rtsp {
+		t.Fatalf("stream_source = %q", got)
+	}
+	if err := r.SetExposure([]string{"camera.garage"}, nil, map[string]string{"camera.garage": ""}); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.StreamSource("camera.garage"); got != "" {
+		t.Fatalf("expected cleared stream_source, got %q", got)
 	}
 }
 

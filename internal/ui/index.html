@@ -148,6 +148,26 @@
     .entity-table .col-area { width: 10%; min-width: 5rem; }
     .entity-table .col-entity { width: 32%; min-width: 12rem; }
     .entity-table .col-state { width: 7rem; }
+    .entity-table .col-stream { width: 6.25rem; min-width: 6.25rem; max-width: 6.25rem; }
+    .stream-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.2rem;
+    }
+    .stream-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.12rem 0.42rem;
+      border-radius: 999px;
+      cursor: default;
+      white-space: nowrap;
+      line-height: 1.2;
+    }
+    .stream-pill-ha { background: #f1f5f9; color: #64748b; }
+    .stream-pill-rtsp { background: #dbeafe; color: #1d4ed8; }
+    .stream-pill-draft { box-shadow: inset 0 0 0 1px #f59e0b; }
+    .stream-cell .camera-stream-edit { padding: 0.1rem 0.35rem; }
     .entity-table .col-ha-name,
     .entity-table .col-area {
       white-space: nowrap;
@@ -262,7 +282,7 @@
 
     <section class="page" id="page-entities">
       <h1 class="page-title">Entities</h1>
-      <p class="page-lead">Choose what appears in HomeKit. Edit <strong>HomeKit Name</strong> to override the auto-generated label (area + friendly name).</p>
+      <p class="page-lead" id="entitiesLead">Choose what appears in HomeKit. Edit <strong>HomeKit Name</strong> to override the auto-generated label (area + friendly name).</p>
       <div class="card-panel">
         <div class="card-body">
           <div class="toolbar">
@@ -289,6 +309,7 @@
                   <th class="col-ha-name">HA Name</th>
                   <th class="col-area">Area</th>
                   <th class="col-entity">Entity</th>
+                  <th class="col-stream d-none" id="thStream">Stream</th>
                   <th class="col-state">State</th>
                 </tr>
               </thead>
@@ -300,6 +321,29 @@
             <button type="button" class="btn btn-success" id="btnSaveExposed"><i class="bi bi-arrow-repeat"></i> Save &amp; Reload Bridge</button>
           </div>
           <div id="entityMsg" class="mt-2"></div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="cameraEditModal" tabindex="-1" aria-labelledby="cameraEditModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="cameraEditModalLabel">Camera stream source</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <p class="small text-muted mb-2">Entity <code id="cameraModalEntity"></code></p>
+              <label class="form-label" for="cameraModalStream">RTSP URL (<code>stream_source</code>)</label>
+              <input type="url" class="form-control font-monospace" id="cameraModalStream" placeholder="rtsp://user:pass@192.168.1.50:554/stream1" autocomplete="off">
+              <div class="form-text">
+                Leave blank to use Home Assistant <code>camera_proxy_stream</code> (default). Applied when you click <strong>Save &amp; Reload Bridge</strong>.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" id="cameraModalApply">Apply</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -322,6 +366,10 @@
 <script>
 const selected = new Set();
 const nameDraft = new Map();
+const streamSourceDraft = new Map();
+const entityById = new Map();
+let cameraModal;
+let cameraEditId = '';
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -413,6 +461,37 @@ function effectiveNameInput(e) {
   return e.homekit_name_default || e.homekit_name || e.name;
 }
 
+function effectiveStreamSource(e) {
+  const draft = streamSourceDraft.get(e.entity_id);
+  if (draft !== undefined) return draft;
+  return e.stream_source || '';
+}
+
+function streamSourceSummary(e) {
+  const src = effectiveStreamSource(e).trim();
+  const dirty = streamSourceDraft.has(e.entity_id);
+  const draft = dirty ? ' stream-pill-draft' : '';
+  if (!src) {
+    const tip = dirty
+      ? 'Home Assistant proxy (unsaved changes — Save & Reload to apply)'
+      : 'Home Assistant camera_proxy_stream (default)';
+    return `<span class="stream-pill stream-pill-ha${draft}" title="${escapeAttr(tip)}">HA</span>`;
+  }
+  let tip = src;
+  if (dirty) tip = 'Unsaved RTSP URL — Save & Reload to apply\n\n' + tip;
+  return `<span class="stream-pill stream-pill-rtsp${draft}" title="${escapeAttr(tip)}">RTSP</span>`;
+}
+
+function updateEntitiesLead(cameraView) {
+  const el = document.getElementById('entitiesLead');
+  if (!el) return;
+  if (cameraView) {
+    el.innerHTML = 'Cameras use Home Assistant live proxy by default. Use <strong>Stream</strong> → edit to set an optional RTSP <code>stream_source</code>. Edit <strong>HomeKit Name</strong> to override the display label.';
+  } else {
+    el.innerHTML = 'Choose what appears in HomeKit. Edit <strong>HomeKit Name</strong> to override the auto-generated label (area + friendly name). Filter by domain <strong>camera</strong> to configure stream URLs.';
+  }
+}
+
 function updateNameInputStyle(input) {
   const def = input.dataset.default || '';
   const val = input.value.trim();
@@ -422,6 +501,9 @@ function updateNameInputStyle(input) {
 
 async function loadEntities() {
   const domain = document.getElementById('domainFilter').value;
+  const cameraView = domain === 'camera';
+  updateEntitiesLead(cameraView);
+  document.getElementById('thStream').classList.toggle('d-none', !cameraView);
   const q = document.getElementById('entitySearch').value;
   const params = new URLSearchParams();
   const exposure = document.getElementById('exposureFilter').value;
@@ -429,14 +511,23 @@ async function loadEntities() {
   if (domain) params.set('domain', domain);
   if (q) params.set('q', q);
   const data = await api('/api/entities?' + params);
+  entityById.clear();
   const tbody = document.getElementById('entityRows');
   tbody.innerHTML = '';
   data.entities.forEach(e => {
+    entityById.set(e.entity_id, e);
     if (e.exposed) selected.add(e.entity_id);
     const defName = e.homekit_name_default || e.homekit_name || e.name;
     const inputVal = effectiveNameInput(e);
     const tr = document.createElement('tr');
     const exposedMark = e.exposed ? '<span class="exposed-badge ms-1">HomeKit</span>' : '';
+    const streamCell = cameraView ? `
+      <td class="col-stream">
+        <div class="stream-cell">
+          ${streamSourceSummary(e)}
+          <button type="button" class="btn btn-sm btn-outline-secondary camera-stream-edit" data-id="${escapeAttr(e.entity_id)}" title="Edit stream source" aria-label="Edit stream source for ${escapeAttr(e.entity_id)}"><i class="bi bi-pencil"></i></button>
+        </div>
+      </td>` : '';
     tr.innerHTML = `
       <td class="col-check"><input type="checkbox" class="form-check-input expose-cb" data-id="${escapeAttr(e.entity_id)}" ${e.exposed ? 'checked' : ''}></td>
       <td class="col-homekit">
@@ -448,6 +539,7 @@ async function loadEntities() {
       <td class="col-ha-name">${escapeHtml(e.name)}${exposedMark}</td>
       <td class="col-area">${escapeHtml(e.area || '—')}</td>
       <td class="col-entity"><code title="${escapeAttr(e.entity_id)}">${escapeHtml(e.entity_id)}</code></td>
+      ${streamCell}
       <td class="col-state"><span class="state-pill">${escapeHtml(e.state)}</span></td>`;
     tbody.appendChild(tr);
   });
@@ -471,6 +563,9 @@ async function loadEntities() {
       nameDraft.set(btn.dataset.id, input.value);
       updateNameInputStyle(input);
     });
+  });
+  tbody.querySelectorAll('.camera-stream-edit').forEach(btn => {
+    btn.addEventListener('click', () => openCameraStreamModal(btn.dataset.id));
   });
   const n = data.entities.length;
   const expLabel = exposure === 'enabled' ? ' in HomeKit' : exposure === 'disabled' ? ' not in HomeKit' : '';
@@ -498,6 +593,42 @@ function collectHomeKitNames() {
     }
   });
   return names;
+}
+
+function collectStreamSources() {
+  const sources = {};
+  for (const id of selected) {
+    if (!streamSourceDraft.has(id)) continue;
+    const e = entityById.get(id);
+    if (!e || e.domain !== 'camera') continue;
+    sources[id] = streamSourceDraft.get(id).trim();
+  }
+  return sources;
+}
+
+function openCameraStreamModal(entityId) {
+  const e = entityById.get(entityId);
+  if (!e) return;
+  cameraEditId = entityId;
+  document.getElementById('cameraModalEntity').textContent = entityId;
+  document.getElementById('cameraModalStream').value = effectiveStreamSource(e);
+  if (!cameraModal) {
+    cameraModal = new bootstrap.Modal(document.getElementById('cameraEditModal'));
+  }
+  cameraModal.show();
+}
+
+function refreshStreamCell(entityId) {
+  const e = entityById.get(entityId);
+  if (!e) return;
+  const td = document.querySelector('td.col-stream .camera-stream-edit[data-id="' + CSS.escape(entityId) + '"]')?.closest('td');
+  if (!td) return;
+  td.innerHTML = `
+    <div class="stream-cell">
+      ${streamSourceSummary(e)}
+      <button type="button" class="btn btn-sm btn-outline-secondary camera-stream-edit" data-id="${escapeAttr(entityId)}" title="Edit stream source" aria-label="Edit stream source"><i class="bi bi-pencil"></i></button>
+    </div>`;
+  td.querySelector('.camera-stream-edit').addEventListener('click', () => openCameraStreamModal(entityId));
 }
 
 async function loadHomeKit() {
@@ -535,17 +666,30 @@ document.getElementById('btnSaveHA').addEventListener('click', async () => {
   } catch (e) { show(msg, e.message, false); }
 });
 
+document.getElementById('cameraModalApply').addEventListener('click', () => {
+  if (!cameraEditId) return;
+  const val = document.getElementById('cameraModalStream').value.trim();
+  streamSourceDraft.set(cameraEditId, val);
+  refreshStreamCell(cameraEditId);
+  if (cameraModal) cameraModal.hide();
+  cameraEditId = '';
+});
+
 document.getElementById('btnSaveExposed').addEventListener('click', async () => {
   const msg = document.getElementById('entityMsg');
   try {
+    const streamSources = collectStreamSources();
+    const body = {
+      entity_ids: [...selected],
+      homekit_names: collectHomeKitNames()
+    };
+    if (Object.keys(streamSources).length) body.stream_sources = streamSources;
     await api('/api/exposed', {
       method: 'PUT', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        entity_ids: [...selected],
-        homekit_names: collectHomeKitNames()
-      })
+      body: JSON.stringify(body)
     });
     nameDraft.clear();
+    streamSourceDraft.clear();
     show(msg, 'Saved. HomeKit bridge is reloading with updated names.', true);
     await refreshStatus();
     await loadEntities();

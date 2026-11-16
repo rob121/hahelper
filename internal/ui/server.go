@@ -196,17 +196,21 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		list = append(list, map[string]interface{}{
-			"entity_id":              se.EntityID,
-			"name":                   friendly,
-			"homekit_name":           homekitName,
-			"homekit_name_default":   defaultHomeKitName,
-			"homekit_name_override":  override,
-			"area":                   areaLabel,
-			"domain":                   domain,
-			"state":                  se.State,
-			"exposed":                exp,
-		})
+		row := map[string]interface{}{
+			"entity_id":             se.EntityID,
+			"name":                  friendly,
+			"homekit_name":          homekitName,
+			"homekit_name_default":  defaultHomeKitName,
+			"homekit_name_override": override,
+			"area":                  areaLabel,
+			"domain":                domain,
+			"state":                 se.State,
+			"exposed":               exp,
+		}
+		if domain == "camera" {
+			row["stream_source"] = s.exposure.StreamSource(se.EntityID)
+		}
+		list = append(list, row)
 	}
 	writeJSON(w, map[string]interface{}{"entities": list})
 }
@@ -222,6 +226,7 @@ func (s *Server) handleExposed(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			EntityIDs     []string          `json:"entity_ids"`
 			HomeKitNames  map[string]string `json:"homekit_names"`
+			StreamSources map[string]string `json:"stream_sources"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -233,7 +238,7 @@ func (s *Server) handleExposed(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if err := s.exposure.SetExposure(body.EntityIDs, body.HomeKitNames); err != nil {
+		if err := s.exposure.SetExposure(body.EntityIDs, body.HomeKitNames, body.StreamSources); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

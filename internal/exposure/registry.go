@@ -100,6 +100,17 @@ func (r *Registry) HomeKitNameOverride(entityID string) string {
 	return ""
 }
 
+func (r *Registry) StreamSource(entityID string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, e := range r.data.Entries {
+		if e.EntityID == entityID {
+			return e.StreamSource
+		}
+	}
+	return ""
+}
+
 // ResolveHomeKitName returns the override when set, otherwise defaultName.
 func (r *Registry) ResolveHomeKitName(entityID, defaultName string) string {
 	if o := strings.TrimSpace(r.HomeKitNameOverride(entityID)); o != "" {
@@ -109,13 +120,14 @@ func (r *Registry) ResolveHomeKitName(entityID, defaultName string) string {
 }
 
 func (r *Registry) SetEntityIDs(ids []string) error {
-	return r.SetExposure(ids, nil)
+	return r.SetExposure(ids, nil, nil)
 }
 
 // SetExposure updates the exposed entity list and optional HomeKit name overrides.
 // homekitNames maps entity_id -> override; empty string clears an override.
+// streamSources maps entity_id -> RTSP URL for cameras; empty string clears it.
 // Keys not present leave existing overrides unchanged.
-func (r *Registry) SetExposure(ids []string, homekitNames map[string]string) error {
+func (r *Registry) SetExposure(ids []string, homekitNames, streamSources map[string]string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -144,6 +156,11 @@ func (r *Registry) SetExposure(ids []string, homekitNames map[string]string) err
 		if homekitNames != nil {
 			if name, ok := homekitNames[id]; ok {
 				e.HomeKitName = strings.TrimSpace(name)
+			}
+		}
+		if streamSources != nil {
+			if src, ok := streamSources[id]; ok {
+				e.StreamSource = strings.TrimSpace(src)
 			}
 		}
 		next = append(next, e)
